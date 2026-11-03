@@ -1,0 +1,506 @@
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button id="clear-all" class="pill-btn" type="button" title="Сбросить выбор (Esc)"><span class="x">✕</span> Сбросить</button>
+      <div class="brand">
+        <div class="brand-mark">◇</div>
+        <div>
+          <div class="brand-title">Сеть стран по доходам госсектора</div>
+          <div class="brand-sub" id="brand-sub">IMF GFS, S13, 54 листа, последний доступный год · 95 стран (без Самоа и Косово) · MST + рёбра выше порога · Louvain · Desht</div>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="chips">
+        <span class="chip">Страны <b id="chip-nodes">—</b></span>
+        <span class="chip">Связи <b id="chip-edges">—</b></span>
+        <span class="chip focus-chip">Фокус <b id="chip-focus">нет</b></span>
+      </div>
+      <button id="theme-toggle" class="icon-btn" type="button" title="Сменить тему" aria-label="Сменить тему">☀</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="card search-card">
+        <div class="card-head"><div class="card-title">Поиск</div></div>
+        <div class="combo" id="combo-country">
+          <label class="field-label" for="country-input">Найти и выделить страну</label>
+          <div class="combo-control">
+            <input id="country-input" class="combo-input" type="search" autocomplete="off" placeholder="Название или код страны…" role="combobox" aria-expanded="false">
+            <button class="combo-clear" type="button" title="Очистить" aria-label="Очистить">×</button>
+          </div>
+          <div class="combo-pop" hidden><ul class="combo-list"></ul></div>
+          <div class="field-hint">Закрепляет страну и её соседей по сети. Клик по кружку в графе делает то же.</div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-head"><div class="card-title">Вид</div></div>
+        <div class="mode-switch">
+          <button class="pill-btn on" id="view-net" type="button">Сеть</button>
+          <button class="pill-btn" id="view-map" type="button">Карта мира</button>
+        </div>
+        <div class="field-hint" style="margin-top:10px"><b>Казахстан: какой вектор в сети</b></div>
+        <label class="field-hint" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px"><input type="radio" name="kaz-mode" value="" checked style="accent-color:var(--nav-accent)"><span><b>KAZ — GFS 2023</b> (как сдано в МВФ)</span></label>
+        <label class="field-hint" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px"><input type="radio" name="kaz-mode" value="year" style="accent-color:var(--nav-accent)"><span><b>KAZ по годам</b> (соцналог → ИПН)</span><select id="kaz-year" style="margin-left:auto;font:inherit;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)"><option value="2000">2000</option><option value="2001">2001</option><option value="2002">2002</option><option value="2003">2003</option><option value="2004">2004</option><option value="2005">2005</option><option value="2006">2006</option><option value="2007">2007</option><option value="2008">2008</option><option value="2009">2009</option><option value="2010">2010</option><option value="2011">2011</option><option value="2012">2012</option><option value="2013">2013</option><option value="2014">2014</option><option value="2015">2015</option><option value="2016">2016</option><option value="2017">2017</option><option value="2018">2018</option><option value="2019">2019</option><option value="2020">2020</option><option value="2021">2021</option><option value="2022">2022</option><option value="2023" selected>2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select></label>
+        <div class="field-hint" style="margin-top:4px">2023 = KAZ_ipn_2023. Кроме 2023 и 2026 — только в варианте «% ВВП»; 2005–2009 — нет данных МВФ.</div>
+        <div class="field-hint">Карта: страны закрашены в границах цветом сообщества выбранного варианта; микространы без контура — точками. Связи показываются для закреплённой страны.</div>
+      </section>
+      <section class="card detail flexy" id="detail" hidden>
+        <div class="card-head">
+          <div class="card-title">О стране</div>
+          <button class="detail-close" id="detail-close" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div id="detail-body" class="detail-body"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><div class="card-title">Вариант сети</div></div>
+        <div class="mode-switch" id="variant-switch" style="flex-direction:column"></div>
+        <div class="field-hint" id="variant-hint"></div>
+        <div class="metric-grid stats-grid" id="variant-stats"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><div class="card-title">Группы стран</div></div>
+        <div class="group-switch" id="group-switch"></div>
+        <div class="field-hint">Можно выбрать несколько. Подсвечиваются только страны выбранных групп.</div>
+      </section>
+    </aside>
+
+    <section class="viz-col">
+      <div class="viz-card"><div id="viz"></div><div id="map" hidden></div></div>
+      <div class="viz-foot">
+        <div class="viz-hint" id="viz-hint-text">◇ Размер шарика — log ВВП (USD 2025) · пунктир — ребро MST ниже порога · клик по стране — соседи · колесо — зум</div>
+        <div class="viz-status" id="status">Загрузка…</div>
+      </div>
+    </section>
+
+    <aside class="sidebar sidebar-right">
+      <section class="card detail flexy" id="cdetail" hidden>
+        <div class="card-head">
+          <div class="card-title">О сообществе</div>
+          <button class="detail-close" id="cdetail-close" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div id="cdetail-body" class="detail-body"></div>
+      </section>
+      <section class="card flexy">
+        <div class="card-head"><div class="card-title">Сообщества <span class="hint-num" id="cluster-count"></span></div></div>
+        <div class="legend-list" id="legend-list"></div>
+        <div class="field-hint">Louvain на графе варианта. Медиана доходов сектора госуправления, % ВВП. Клик — подсветить сообщество и открыть описание. Номера сообществ между вариантами не сопоставлены.</div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const DATA = __DATA__;
+    const state = { v: 0, view: "net", kazMode: "", allNodes: [], allLinks: [], linkMap: new Map(), nodeById: new Map(), adjacency: new Map(), clusterMeta: [], selectedCluster: null, pinned: "", labelIds: new Set(), groups: new Set() };
+    let net = null;
+    const V = () => DATA.variants[state.v];
+    const HIDE = new Set(["WSM", "KOS"]);   // Самоа и Косово не показываются ни в сети, ни на карте, ни в поиске
+    const kzId = (m) => (!m ? "KAZ" : m === "2023" ? "KAZ_ipn_2023" : "KAZ_" + m);
+    const KZ = () => kzId(state.kazMode);
+    const isKZ = (id) => id === "KAZ" || /^KAZ_(ipn_)?\d{4}$/.test(id || "");
+    const baseKZ = (id) => (isKZ(id) ? "KAZ" : id);
+    const altKey = (m) => (!m ? "" : m === "2023" ? "alt" : "alt" + m);
+    const ALT = (v) => (state.kazMode && v[altKey(state.kazMode)]) || v;
+    function syncKazRadios() { const v = DATA.variants[state.v]; const sel = document.getElementById("kaz-year"); Array.from(sel.options).forEach((o) => { o.disabled = !v[altKey(o.value)]; }); if (state.kazMode && !v[altKey(state.kazMode)]) { state.kazMode = ""; document.querySelector('input[name="kaz-mode"][value=""]').checked = true; } }
+    const pct = (v) => "p" + Math.round(v.q * 100);
+    const thrText = (v) => pct(v) + " = " + fmt3(v.thr);
+    const clusterOf = (id) => V().clusters.find((c) => c.id === id);
+    const clusterColor = (id) => { const c = clusterOf(id); return c ? c.color : "#898781"; };
+    const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const fmt1 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? "—" : v.toFixed(1).replace(".", ",");
+    const fmt2 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? "—" : v.toFixed(2).replace(".", ",");
+    const fmt3 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? "—" : v.toFixed(3).replace(".", ",");
+    const fmt0 = (v) => (v === null || v === undefined || !Number.isFinite(v)) ? "—" : String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+    function hexToRgba(hex, a) { const h = String(hex || "").replace("#", ""); if (h.length !== 6) return hex; return "rgba(" + parseInt(h.slice(0,2),16) + "," + parseInt(h.slice(2,4),16) + "," + parseInt(h.slice(4,6),16) + "," + a + ")"; }
+    const gdpBn = (id) => DATA.meta[id].gdp / 1000;
+
+    /* ── highlight model ───────────────────────────────────────────────── */
+    const anyActive = () => state.groups.size > 0 || !!(state.pinned || state.selectedCluster !== null);
+    function activeHighlight() {
+      let ids = new Set();
+      const base = (state.pinned || state.selectedCluster !== null) ? null : new Set(state.allNodes.map((n) => n.id));
+      if (state.pinned) { ids.add(state.pinned); (state.adjacency.get(state.pinned) || new Set()).forEach((n) => ids.add(n)); }
+      if (state.selectedCluster !== null) state.allNodes.forEach((n) => { if (n.cluster === state.selectedCluster) ids.add(n.id); });
+      if (base) ids = base;
+      if (state.groups.size) ids = new Set([...ids].filter((id) => state.groups.has(state.nodeById.get(id).group) || (state.pinned && id === state.pinned)));
+      return ids;
+    }
+    function topByValue(k) { return new Set(state.allNodes.slice().sort((a, b) => b.size - a.size).slice(0, k).map((n) => n.id)); }
+    function getDisplayNodes() {
+      const active = anyActive(); const ids = active ? activeHighlight() : null;
+      state.labelIds = active ? new Set(ids) : topByValue(30); state.labelIds.add(KZ());
+      const muted = cssVar("--node-muted") || "#363d4b";
+      return state.allNodes.map((n) => ({ ...n, displayColor: !active || ids.has(n.id) ? n.color : muted, isFocus: n.id === state.pinned }));
+    }
+
+    /* ── d3plus network ────────────────────────────────────────────────── */
+    function tooltipBody(d) {
+      const n = state.nodeById.get(d.id); if (!n) return ""; const c = clusterOf(n.cluster);
+      return (DATA.meta[n.id].note ? DATA.meta[n.id].note + " " : "") + "Доходы " + fmt1(n.g1) + "% ВВП · ВВП $" + fmt0(gdpBn(n.id)) + " млрд (2025) · " + n.group + " · " + n.year + (c ? " · " + c.id + ". " + c.name : "");
+    }
+    function shapeCfg() {
+      const strokeColor = cssVar("--card") || "#16191f"; const FOCUS_RING = cssVar("--focus-ring") || "#ffffff";
+      return { fill: (d) => d.displayColor || d.color, stroke: (d) => (d.isFocus ? FOCUS_RING : (isKZ(d.id) ? (cssVar("--nav-accent") || "#e5b983") : strokeColor)), strokeWidth: (d) => (d.isFocus ? 3 : (isKZ(d.id) ? 2 : 1)) };
+    }
+    function buildNetwork() {
+      if (net) { document.getElementById("viz").innerHTML = ""; net = null; }
+      net = new d3plus.Network().select("#viz").nodes(getDisplayNodes()).links(state.allLinks).x("x").y("y")
+        .size((d) => d.size).sizeMin(4).sizeMax(18).zoomPadding(70).label(() => "")
+        .shapeConfig(shapeCfg())
+        .tooltipConfig({ width: 380, title: (d) => { const n = state.nodeById.get(d.id); return n ? n.label + " (" + n.id + ")" : d.id; },
+          titleStyle: { "font-family": "Space Grotesk, sans-serif", "font-size": "14px" }, body: (d) => tooltipBody(d), bodyStyle: { "font-size": "12px", "margin-top": "4px", color: "#475569" } })
+        .on("click", (d) => { if (d && d.id) pinCountry(d.id, true); })
+        .render();
+    }
+    function updateViz() {
+      if (state.view === "map") { updateMap(); updateChips(); return; }
+      if (!net) buildNetwork(); else net.shapeConfig(shapeCfg()).nodes(getDisplayNodes()).render();
+      scheduleDecorate(); updateChips();
+    }
+
+    /* ── SVG post-processing ───────────────────────────────────────────── */
+    function extractId(datum) {
+      if (!datum || typeof datum !== "object") return "";
+      if (typeof datum.id === "string") return datum.id;
+      if (datum.data && typeof datum.data.id === "string") return datum.data.id;
+      const m = datum.__d3plus__; if (!m) return "";
+      if (typeof m.id === "string") return m.id;
+      if (m.data && typeof m.data.id === "string") return m.data.id;
+      if (Array.isArray(m.ids) && m.ids.length) return String(m.ids[0]);
+      return "";
+    }
+    function edgeInfo(edge) {
+      const d = edge.__data__; if (!d || typeof d !== "object") return { a: "", b: "", w: NaN, below: false };
+      const data = (d.data && (d.data.source || d.data.target)) ? d.data : d;
+      const norm = (e) => (e && typeof e === "object") ? extractId(e) : (typeof e === "string" ? e : "");
+      const a = norm(data.source), b = norm(data.target); const l = state.linkMap.get(a + "|" + b) || state.linkMap.get(b + "|" + a);
+      return { a, b, w: l ? l.sim : NaN, below: !!(l && l.below) };
+    }
+    function curveEdge(edge) {
+      if (edge.nodeName.toLowerCase() !== "path") return;
+      const d = edge.getAttribute("d"); if (!d) return;
+      const nums = d.match(/-?\d+(?:\.\d+)?/g); if (!nums || nums.length !== 4) return;
+      const x1 = +nums[0], y1 = +nums[1], x2 = +nums[2], y2 = +nums[3];
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy); if (!len) return;
+      const off = Math.min(len * 0.12, 55);
+      edge.setAttribute("d", "M" + x1 + "," + y1 + "Q" + ((x1 + x2) / 2 + (-dy / len) * off) + "," + ((y1 + y2) / 2 + (dx / len) * off) + " " + x2 + "," + y2);
+    }
+    const wNorm = (w) => { const v = ALT(V()); return Math.max(0, Math.min(1, (w - v.wlo) / (v.whi - v.wlo))); };
+    const wWidth = (w) => Number.isFinite(w) ? 0.8 + wNorm(w) * 3.0 : 1.6;
+    const wOpacity = (w) => Number.isFinite(w) ? 0.30 + wNorm(w) * 0.55 : 0.5;
+
+    function decorate() {
+      const svg = document.querySelector("#viz svg"); if (!svg) return;
+      const edgeColor = cssVar("--edge-color") || "rgba(255,255,255,.1)"; const focusEdge = cssVar("--focus-ring") || "#ffffff"; const focus = state.pinned;
+      const dashColor = cssVar("--muted") || "#9ca3af";
+      svg.querySelectorAll("path, line").forEach((edge) => {
+        if (edge.closest(".d3plus-tooltip")) return;
+        curveEdge(edge);
+        const { a, b, w, below } = edgeInfo(edge); const connected = focus && (a === focus || b === focus);
+        edge.style.strokeDasharray = below ? "5 4" : "";
+        if (focus && connected) { edge.style.stroke = below ? dashColor : focusEdge; edge.style.strokeWidth = Math.max(2.2, wWidth(w)) + "px"; edge.style.opacity = "0.95"; }
+        else if (focus) { edge.style.stroke = edgeColor; edge.style.strokeWidth = "1.1px"; edge.style.opacity = "0.16"; }
+        else {
+          const ca = state.nodeById.get(a), cb = state.nodeById.get(b);
+          const same = ca && cb && ca.cluster === cb.cluster;
+          const dimmed = state.selectedCluster !== null && !(same && ca.cluster === state.selectedCluster);
+          if (below) { edge.style.stroke = dashColor; edge.style.strokeWidth = "1.1px"; edge.style.opacity = String(dimmed ? 0.12 : 0.55); }
+          else { edge.style.stroke = same ? hexToRgba(clusterColor(ca.cluster), 0.6) : edgeColor; edge.style.strokeWidth = wWidth(w) + "px"; edge.style.opacity = String(dimmed ? 0.12 : wOpacity(w)); }
+        }
+      });
+      svg.querySelectorAll("text.force-id-label").forEach((n) => n.remove());
+      const fg = cssVar("--label-fg") || "#fff", bg = cssVar("--label-bg") || "#000";
+      svg.querySelectorAll("circle").forEach((circle) => {
+        const parent = circle.parentNode; if (!parent || parent.nodeName.toLowerCase() !== "g") return;
+        const id = extractId(circle.__data__) || extractId(parent.__data__); if (!id || !state.labelIds.has(id)) return;
+        const d = circle.__data__ || {}; const tr = /translate\(\s*([-\d.e]+)[ ,]+([-\d.e]+)/.exec(circle.getAttribute("transform") || "");
+        const cx = tr ? +tr[1] : (+circle.getAttribute("cx") || d.x || 0), cy = tr ? +tr[2] : (+circle.getAttribute("cy") || d.y || 0), r = +circle.getAttribute("r") || d.r || 0;
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("class", "force-id-label"); t.setAttribute("x", cx); t.setAttribute("y", cy - r - 4); t.setAttribute("text-anchor", "middle");
+        t.setAttribute("font-size", isKZ(id) ? "11" : "9.5"); t.setAttribute("font-weight", isKZ(id) ? "700" : "600");
+        t.setAttribute("fill", isKZ(id) ? (cssVar("--nav-accent") || fg) : fg); t.setAttribute("stroke", bg); t.setAttribute("stroke-width", "2.4"); t.setAttribute("paint-order", "stroke");
+        t.style.pointerEvents = "none"; t.textContent = id; parent.appendChild(t);
+      });
+    }
+    function scheduleDecorate() { setTimeout(decorate, 90); setTimeout(decorate, 320); }
+
+    /* ── chips / status ────────────────────────────────────────────────── */
+    function updateChips() {
+      document.getElementById("chip-nodes").textContent = state.allNodes.length;
+      document.getElementById("chip-edges").textContent = state.allLinks.length;
+      const c = clusterOf(state.selectedCluster);
+      document.getElementById("chip-focus").textContent = state.pinned ? state.pinned : (c ? c.name : "нет");
+      const status = document.getElementById("status");
+      if (state.pinned) { const n = state.nodeById.get(state.pinned); status.textContent = n.label + " · " + (state.adjacency.get(state.pinned) || new Set()).size + " соседей"; }
+      else if (c) status.textContent = c.name + " · " + state.allNodes.filter((n) => n.cluster === c.id && (!state.groups.size || state.groups.has(n.group))).length + " стран";
+      else if (state.groups.size) { const n = activeHighlight().size; document.getElementById("chip-focus").textContent = [...state.groups].join(" + "); status.textContent = [...state.groups].join(" + ") + " · " + n + " стран"; }
+      else status.textContent = V().title + " · " + state.allNodes.length + " стран · " + state.allLinks.length + " связей · порог " + thrText(V());
+    }
+
+    /* ── actions ───────────────────────────────────────────────────────── */
+    function pinCountry(id, fromCanvas) {
+      state.pinned = (state.pinned === id && !fromCanvas) ? "" : id;
+      if (state.pinned) showDetail(state.pinned); else hideDetail();
+      if (countryCombo) countryCombo.setValue(state.pinned ? state.nodeById.get(state.pinned).label : "");
+      updateViz();
+    }
+    function selectCluster(id) {
+      state.selectedCluster = (state.selectedCluster === id) ? null : id;
+      renderLegend(); if (state.selectedCluster !== null) showClusterDetail(state.selectedCluster); else hideClusterDetail(); updateViz();
+    }
+    const GROUP_ORDER = ["Казахстан", "ядро", "эшелон", "остальные", "вне списка"];
+    function renderGroups() {
+      const box = document.getElementById("group-switch"); box.innerHTML = "";
+      GROUP_ORDER.forEach((g) => {
+        const n = state.allNodes.filter((x) => x.group === g).length; if (!n) return;
+        const b = document.createElement("button"); b.type = "button"; b.className = "pill-btn" + (state.groups.has(g) ? " on" : "");
+        b.innerHTML = g + ' <span class="cnt">' + n + '</span>';
+        b.addEventListener("click", () => { if (state.groups.has(g)) state.groups.delete(g); else state.groups.add(g); renderGroups(); updateViz(); });
+        box.appendChild(b);
+      });
+    }
+    function resetAll() {
+      state.groups = new Set(); renderGroups();
+      state.selectedCluster = null; state.pinned = "";
+      if (countryCombo) countryCombo.setValue(""); hideDetail(); hideClusterDetail(); renderLegend(); updateViz();
+    }
+    function renderVariants() {
+      const box = document.getElementById("variant-switch"); box.innerHTML = "";
+      DATA.variants.forEach((v, i) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "pill-btn" + (i === state.v ? " on" : ""); b.innerHTML = v.title + ' <span class="cnt">' + pct(v) + "</span>";
+        b.addEventListener("click", () => setVariant(i)); box.appendChild(b);
+      });
+      const v = V(); document.getElementById("variant-hint").textContent = v.desc + ". Порог — " + Math.round(v.q * 100) + "-й процентиль близости по " + fmt0(v.stats["пар"]) + " уникальным парам стран (" + pct(v) + " = " + fmt3(v.thr) + "): ребро рисуется, если близость пары не ниже; плюс рёбра MST, они могут быть ниже порога (пунктир).";
+      const st = ALT(v).stats; const grid = document.getElementById("variant-stats");
+      grid.innerHTML = [["Порог (" + pct(v) + ")", fmt3(v.thr)], ["Пар ≥ порога", st["пар ≥ порога"] + " / " + fmt0(st["пар"])], ["Рёбер (MST + ≥ порога)", st["рёбер"]], ["Сообществ", st["сообществ"]], ["Модулярность", fmt3(st["модулярность"])], ["Медиана близости", fmt3(st["медиана"])], ["MST ниже порога", st["MST ниже порога"]]]
+        .map(([l, x]) => '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:14px">' + x + '</div></div>').join("") + (state.kazMode ? '<div class="metric" style="grid-column:1/-1"><div class="metric-label">' + KZ() + ': кластер по Louvain</div><div class="metric-value" style="font-size:12px;white-space:normal">' + escapeHtml(ALT(v).kaz_votes) + '</div></div>' : "");
+      document.getElementById("brand-sub").textContent = "IMF GFS, S13, 54 листа, последний доступный год · 97 стран · " + v.title + " · MST + рёбра ≥ " + thrText(v) + " · Louvain · Desht";
+    }
+    function loadVariant() {
+      const v = V(); const src = ALT(v);
+      const nodes = src.nodes.filter((d) => !HIDE.has(d.id)).map((d) => { const m = DATA.meta[d.id]; return { id: d.id, label: m.label, x: d.x, y: d.y, size: Math.log10(Math.max(m.gdp, 1)), gdp: m.gdp, g1: m.g1, year: m.year, strength: d.strength, deg: d.deg, cluster: d.cl, group: isKZ(d.id) ? "Казахстан" : m.group, color: clusterColor(d.cl) }; });
+      state.allNodes = nodes.slice().sort((a, b) => a.id.localeCompare(b.id));
+      state.allLinks = src.links.filter((l) => !HIDE.has(l.source) && !HIDE.has(l.target)).map((l) => ({ source: l.source, target: l.target, sim: l.sim, weight: l.sim, below: l.below, mst: l.mst }));
+      state.nodeById = new Map(nodes.map((n) => [n.id, n]));
+      state.adjacency = new Map(nodes.map((n) => [n.id, new Set()]));
+      state.allLinks.forEach((l) => { state.adjacency.get(l.source).add(l.target); state.adjacency.get(l.target).add(l.source); });
+      state.linkMap = new Map(state.allLinks.map((l) => [l.source + "|" + l.target, l]));
+      state.clusterMeta = v.clusters.map((c) => ({ id: c.id, name: c.name, color: c.color, count: nodes.filter((n) => n.cluster === c.id).length, g1: c.g1 }));
+    }
+    function setVariant(i) {
+      const pinned = state.pinned; state.v = i; state.selectedCluster = null; state.pinned = ""; syncKazRadios();
+      loadVariant(); renderVariants(); renderLegend(); renderGroups(); hideClusterDetail(); hideDetail();
+      if (net) { document.getElementById("viz").innerHTML = ""; net = null; }
+      if (pinned && state.nodeById.has(pinned)) { state.pinned = pinned; showDetail(pinned); }
+      updateViz();
+    }
+
+    /* ── detail panels ─────────────────────────────────────────────────── */
+    function barsHtml(valsG, refG, valsS, refS, refName, ownName, keys) {
+      const maxV = Math.max(...keys.map((k) => Math.max(valsG[k] || 0, refG ? (refG[k] || 0) : 0))) || 1;
+      return '<div class="detail-sub">Статьи · % ВВП (в скобках % доходов)</div>' +
+        '<div class="emp-row emp-head"><span class="emp-name">статья</span>' + (refG ? '<span class="emp-val">' + refName + '</span>' : '') + '<span class="emp-share">' + ownName + '</span></div><div class="emp-list">' +
+        keys.map((k) => '<div><div class="emp-row"><span class="emp-name">' + escapeHtml(DATA.items[k]) + ' <span class="ind-pci">' + k + '</span></span>' + (refG ? '<span class="emp-val">' + fmt2(refG[k]) + ' (' + fmt1(refS[k]) + '%)</span>' : '') + '<span class="emp-share">' + fmt2(valsG[k]) + (valsS ? ' (' + fmt1(valsS[k]) + '%)' : '') + '</span></div>' +
+          '<div class="emp-bar" style="width:' + Math.max(2, Math.round(Math.max(valsG[k] || 0, 0) / maxV * 100)) + '%"></div></div>').join("") + '</div>';
+    }
+    function topKeys(vals, k) { return Object.keys(vals).filter((x) => vals[x] > 0).sort((a, b) => vals[b] - vals[a]).slice(0, k); }
+    function showDetail(id) {
+      const n = state.nodeById.get(id); if (!n) return;
+      const c = clusterOf(n.cluster); const neighbors = Array.from(state.adjacency.get(id) || []).sort((a, b) => (simTo(id, b) - simTo(id, a)));
+      const cty = DATA.cty[id]; const keys = topKeys(cty.gdp, 12);
+      const body = document.getElementById("detail-body");
+      body.innerHTML =
+        '<div class="detail-city">' + escapeHtml(n.label) + ' (' + n.id + ') · ' + n.year + '</div>' +
+        '<div class="detail-cluster"><span class="legend-swatch" style="background:' + n.color + '"></span>' + (c ? escapeHtml(c.name) : '—') + ' · группа: ' + escapeHtml(n.group) + '</div>' +
+        (DATA.meta[n.id].note ? '<div class="detail-desc">' + escapeHtml(DATA.meta[n.id].note) + '</div>' : '') +
+        '<div class="metric-grid">' +
+          '<div class="metric"><div class="metric-label">Доходы, % ВВП</div><div class="metric-value">' + fmt1(n.g1) + '</div></div>' +
+          '<div class="metric"><div class="metric-label">ВВП, млрд USD 2025</div><div class="metric-value">' + fmt0(gdpBn(id)) + '</div></div>' +
+          '<div class="metric"><div class="metric-label">Связи</div><div class="metric-value">' + neighbors.length + '</div></div>' +
+          '<div class="metric"><div class="metric-label">Сила (Σ близости)</div><div class="metric-value">' + fmt2(n.strength) + '</div></div>' +
+        '</div>' +
+        barsHtml(cty.gdp, c ? c.prof.gdp : null, cty.sh, c ? c.prof.sh : null, "медиана сообщества", "страна", keys) +
+        '<div class="detail-sub">Соседи по сети · ' + neighbors.length + '</div><div class="ind-list">' +
+          neighbors.map((v) => { const m = state.nodeById.get(v); const below = simTo(id, v) < V().thr; return '<span class="ind-pill' + (isKZ(v) ? ' kz' : '') + '" data-id="' + v + '" style="border-color:' + hexToRgba(m.color, .6) + (below ? ';border-style:dashed' : '') + '">' + escapeHtml(m.label) + '<span class="ind-pci">' + v + ' · ' + fmt3(simTo(id, v)) + '</span></span>'; }).join("") + '</div>';
+      body.querySelectorAll(".ind-pill").forEach((p) => p.addEventListener("click", () => pinCountry(p.dataset.id, true)));
+      document.getElementById("detail").hidden = false;
+    }
+    function simTo(a, b) { const l = state.linkMap.get(a + "|" + b) || state.linkMap.get(b + "|" + a); return l ? l.sim : NaN; }
+    function hideDetail() { document.getElementById("detail").hidden = true; }
+
+    function showClusterDetail(cid) {
+      const c = clusterOf(cid); if (!c) return;
+      const members = state.allNodes.filter((n) => n.cluster === cid && (!state.groups.size || state.groups.has(n.group))).sort((a, b) => (isKZ(a.id) ? -1 : isKZ(b.id) ? 1 : a.label.localeCompare(b.label, "ru")));
+      const keys = topKeys(c.prof.gdp, 12);
+      const body = document.getElementById("cdetail-body");
+      body.innerHTML =
+        '<div class="detail-city">' + c.id + '. ' + escapeHtml(c.name) + '</div>' +
+        '<div class="detail-cluster"><span class="legend-swatch" style="background:' + c.color + '"></span>' + members.length + ' стран · доходы ' + fmt1(c.g1) + '% ВВП (медиана)</div>' +
+        '<div class="detail-desc">' + escapeHtml(c.desc) + '</div>' +
+        barsHtml(c.prof.gdp, DATA.allmed.gdp, c.prof.sh, DATA.allmed.sh, "медиана всех стран", "сообщество", keys) +
+        '<div class="detail-sub">Состав · ' + members.length + '</div><div class="ind-list">' +
+          members.map((m) => '<span class="ind-pill' + (isKZ(m.id) ? ' kz' : '') + '" data-id="' + m.id + '">' + escapeHtml(m.label) + '<span class="ind-pci">' + m.id + '</span></span>').join("") + '</div>';
+      body.querySelectorAll(".ind-pill").forEach((pl) => pl.addEventListener("click", () => pinCountry(pl.dataset.id, true)));
+      document.getElementById("cdetail").hidden = false;
+    }
+    function hideClusterDetail() { document.getElementById("cdetail").hidden = true; }
+
+    /* ── legend ────────────────────────────────────────────────────────── */
+    function renderLegend() {
+      const list = document.getElementById("legend-list"); list.innerHTML = "";
+      state.clusterMeta.filter((c) => c.count > 0).forEach((c) => {
+        const btn = document.createElement("button"); btn.className = "legend-item" + (state.selectedCluster === c.id ? " active" : ""); btn.type = "button";
+        btn.innerHTML = '<span class="legend-swatch" style="background:' + c.color + '"></span><span class="legend-text"><span class="legend-name">' + c.id + '. ' + escapeHtml(c.name) + '</span><span class="legend-meta">доходы ' + fmt1(c.g1) + '% ВВП</span></span><span class="legend-count">' + c.count + '</span>';
+        btn.addEventListener("click", () => selectCluster(c.id)); list.appendChild(btn);
+      });
+      document.getElementById("cluster-count").textContent = "· " + state.clusterMeta.filter((c) => c.count > 0).length;
+    }
+
+    /* ── combobox ──────────────────────────────────────────────────────── */
+    function createCombobox(rootId, { items, onSelect, onClear, renderItem }) {
+      const root = document.getElementById(rootId), input = root.querySelector(".combo-input"), clearBtn = root.querySelector(".combo-clear"), pop = root.querySelector(".combo-pop"), list = root.querySelector(".combo-list");
+      let current = [], activeIdx = -1;
+      const open = () => { pop.hidden = false; input.setAttribute("aria-expanded", "true"); };
+      const close = () => { pop.hidden = true; activeIdx = -1; input.setAttribute("aria-expanded", "false"); };
+      function refresh() { const q = input.value.trim().toLowerCase(); const all = items(); current = (q ? all.filter((it) => it.label.toLowerCase().includes(q) || it.id.toLowerCase().includes(q)) : all).slice(0, 60); activeIdx = -1; render(); open(); }
+      function render() {
+        list.innerHTML = ""; if (!current.length) { list.innerHTML = '<li class="combo-empty">Нет совпадений</li>'; return; }
+        current.forEach((it, i) => { const li = document.createElement("li"); li.className = "combo-option" + (i === activeIdx ? " active" : ""); li.innerHTML = renderItem(it); li.addEventListener("mousedown", (e) => { e.preventDefault(); choose(it); }); list.appendChild(li); if (i === activeIdx) li.scrollIntoView({ block: "nearest" }); });
+      }
+      function choose(it) { input.value = it.label; close(); onSelect(it); }
+      input.addEventListener("focus", refresh);
+      input.addEventListener("input", () => { if (!input.value.trim()) onClear(); refresh(); });
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") { activeIdx = Math.min(activeIdx + 1, current.length - 1); render(); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { activeIdx = Math.max(activeIdx - 1, 0); render(); e.preventDefault(); }
+        else if (e.key === "Enter") { const pick = current[activeIdx] || (current.length === 1 ? current[0] : null); if (pick) choose(pick); }
+        else if (e.key === "Escape") { close(); input.blur(); }
+      });
+      clearBtn.addEventListener("click", () => { input.value = ""; onClear(); close(); input.focus(); });
+      document.addEventListener("click", (e) => { if (!root.contains(e.target)) close(); });
+      return { setValue: (v) => { input.value = v; } };
+    }
+    let countryCombo = null;
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.getElementById("theme-toggle").textContent = theme === "dark" ? "☀" : "☾";
+      try { localStorage.setItem("desht-theme", theme); } catch (e) {}
+      if (state.view === "map") { if (MAP.built) MAP.g.select(".sphere").attr("stroke", cssVar("--border")); updateMap(); } else if (net) updateViz();
+    }
+
+    /* ── map view (хороплет: страна закрашена в границах цветом сообщества) ── */
+    const MAP = { built: false, svg: null, g: null, proj: null, path: null, zoom: null, feats: null, tip: null, centroid: new Map(), hasPoly: new Set() };
+    const MAP_NAME = { KOS: "Kosovo" };
+    function setView(v) {
+      state.view = v;
+      document.getElementById("view-net").classList.toggle("on", v === "net"); document.getElementById("view-map").classList.toggle("on", v === "map");
+      document.getElementById("viz").hidden = v !== "net"; document.getElementById("map").hidden = v !== "map";
+      document.getElementById("viz-hint-text").textContent = v === "map" ? "◇ Цвет страны — сообщество выбранного варианта · точки — микространы без контура · клик по стране — соседи по сети (сплошная линия ≥ порога, пунктир — ребро MST) · колесо — зум" : "◇ Размер шарика — log ВВП (USD 2025) · пунктир — ребро MST ниже порога · клик по стране — соседи · колесо — зум";
+      if (v === "map") { if (!MAP.built) buildMap(); else updateMap(); } else updateViz();
+    }
+    function buildMap() {
+      MAP.built = true; const box = document.getElementById("map"); box.innerHTML = "";
+      const W = box.clientWidth || 900, H = box.clientHeight || 600;
+      MAP.svg = d3.select(box).append("svg").attr("viewBox", "0 0 " + W + " " + H).attr("preserveAspectRatio", "xMidYMid meet");
+      MAP.g = MAP.svg.append("g"); ["land-layer", "edge-layer", "marker-layer", "label-layer"].forEach((c) => MAP.g.append("g").attr("class", c));
+      MAP.proj = d3.geoNaturalEarth1(); MAP.path = d3.geoPath(MAP.proj);
+      MAP.zoom = d3.zoom().scaleExtent([1, 12]).on("zoom", (e) => {
+        const k = e.transform.k, s = Math.sqrt(k); MAP.g.attr("transform", e.transform);
+        MAP.g.selectAll(".land").attr("stroke-width", (d) => (d.__sw || 0.5) / k);
+        MAP.g.selectAll(".marker").attr("r", (d) => d.r / s).attr("stroke-width", (d) => d.sw / s);
+        MAP.g.selectAll(".map-label").attr("font-size", (d) => d.fs / s);
+        MAP.g.selectAll(".map-edge").attr("stroke-width", (d) => d.sw / k);
+      });
+      MAP.svg.call(MAP.zoom);
+      if (!MAP.tip) { MAP.tip = document.createElement("div"); MAP.tip.className = "map-tip"; MAP.tip.hidden = true; document.body.appendChild(MAP.tip); }
+      document.getElementById("status").textContent = "Загрузка карты…";
+      const draw = (feats) => {
+        MAP.feats = feats; MAP.proj.fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
+        const byN3 = new Map(), byName = new Map();
+        Object.keys(DATA.meta).forEach((id) => { if (DATA.meta[id].n3) byN3.set(DATA.meta[id].n3, id); if (MAP_NAME[id]) byName.set(MAP_NAME[id], id); });
+        feats.forEach((f) => { f.iso = byN3.get(String(f.id)) || byName.get(f.properties && f.properties.name) || null; if (isKZ(f.iso)) f.iso = "KAZ"; if (f.iso) { MAP.hasPoly.add(f.iso); MAP.centroid.set(f.iso, MAP.path.centroid(mainPolygon(f))); } });
+        Object.keys(DATA.meta).forEach((id) => { if (!MAP.centroid.has(id)) { const ll = DATA.meta[id].ll; MAP.centroid.set(id, MAP.proj([ll[1], ll[0]])); } });
+        MAP.g.select(".land-layer").append("path").attr("class", "sphere").attr("d", MAP.path({ type: "Sphere" })).attr("fill", "none").attr("stroke", cssVar("--border")).attr("stroke-width", 0.8);
+        MAP.g.select(".land-layer").selectAll("path.land").data(feats.slice().sort((a, b) => (a.iso ? 1 : 0) - (b.iso ? 1 : 0))).join("path").attr("class", "land").attr("d", MAP.path)
+          .on("click", (e, f) => { if (f.iso) { e.stopPropagation(); pinCountry(f.iso === "KAZ" ? KZ() : f.iso, true); } })
+          .on("mousemove", (e, f) => { if (f.iso) showMapTip(e, f.iso === "KAZ" ? KZ() : f.iso); else MAP.tip.hidden = true; })
+          .on("mouseleave", () => { MAP.tip.hidden = true; });
+        updateMap(); updateChips();
+      };
+      fetch("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json").then((r) => r.json()).then((topo) => draw(topojson.feature(topo, topo.objects.countries).features))
+        .catch((err) => { document.getElementById("status").textContent = "Контур карты не загрузился (" + err.message + "), показаны только точки"; draw([]); });
+    }
+    function mainPolygon(f) {   // для мультиполигонов — самый большой полигон (Франция без Гвианы, США без Аляски и т.п.)
+      const g = f.geometry; if (!g || g.type !== "MultiPolygon") return f;
+      let best = null, bestA = -1;
+      g.coordinates.forEach((coords) => { const pf = { type: "Feature", geometry: { type: "Polygon", coordinates: coords } }; const a = d3.geoArea(pf); if (a > bestA) { bestA = a; best = pf; } });
+      return best || f;
+    }
+    function showMapTip(e, id) {
+      const n = state.nodeById.get(id); if (!n) return; const c = clusterOf(n.cluster);
+      MAP.tip.innerHTML = "<b>" + escapeHtml(n.label) + " (" + n.id + ")</b>" + (DATA.meta[n.id].note ? escapeHtml(DATA.meta[n.id].note) + " " : "") + "Доходы " + fmt1(n.g1) + "% ВВП · ВВП $" + fmt0(gdpBn(n.id)) + " млрд (2025) · " + escapeHtml(n.group) + " · " + n.year + (c ? " · " + c.id + ". " + escapeHtml(c.name) : "") + " · связей " + (state.adjacency.get(n.id) || new Set()).size;
+      MAP.tip.hidden = false; MAP.tip.style.left = (e.clientX + 14) + "px"; MAP.tip.style.top = (e.clientY + 14) + "px";
+    }
+    function updateMap() {
+      if (!MAP.built || !MAP.feats) return;
+      const nodes = getDisplayNodes(); const byId = new Map(nodes.map((n) => [baseKZ(n.id), n]));
+      const focusRing = cssVar("--focus-ring") || "#fff", gold = cssVar("--nav-accent") || "#e5b983", card = cssVar("--card") || "#16191f", muted = cssVar("--node-muted") || "#363d4b", border = cssVar("--border") || "#333";
+      const fg = cssVar("--label-fg") || "#fff", bg = cssVar("--label-bg") || "#000";
+      const k = d3.zoomTransform(MAP.svg.node()).k || 1, s = Math.sqrt(k);
+      MAP.g.selectAll(".land").each(function (f) { const n = f.iso ? byId.get(f.iso) : null; f.__sw = n && (n.isFocus || isKZ(n.id)) ? 2 : 0.5; })
+        .style("fill", (f) => { const n = f.iso ? byId.get(f.iso) : null; return n ? (n.displayColor || n.color) : null; }).style("fill-opacity", (f) => f.iso ? 0.92 : null)
+        .style("stroke", (f) => { const n = f.iso ? byId.get(f.iso) : null; return n ? (n.isFocus ? focusRing : (isKZ(n.id) ? gold : bg)) : null; }).attr("stroke-width", (f) => (f.__sw || 0.5) / k)
+        .style("cursor", (f) => f.iso ? "pointer" : null);
+      // поднять закреплённую страну и Казахстан наверх, чтобы обводка не перекрывалась соседями
+      MAP.g.selectAll(".land").filter((f) => f.iso && (f.iso === state.pinned || (isKZ(state.pinned) && f.iso === "KAZ") || f.iso === "KAZ")).raise();
+      const marks = nodes.filter((n) => !MAP.hasPoly.has(n.id) && !isKZ(n.id)).map((n) => { const p = MAP.centroid.get(n.id); return { ...n, px: p[0], py: p[1], r: 4.5, sw: n.isFocus ? 2.5 : 1 }; });
+      MAP.g.select(".marker-layer").selectAll("circle.marker").data(marks, (d) => d.id).join("circle").attr("class", "marker").attr("cx", (d) => d.px).attr("cy", (d) => d.py).attr("r", (d) => d.r / s)
+        .attr("fill", (d) => d.displayColor || d.color).attr("stroke", (d) => d.isFocus ? focusRing : card).attr("stroke-width", (d) => d.sw / s).style("cursor", "pointer")
+        .on("click", (e, d) => { e.stopPropagation(); pinCountry(d.id, true); }).on("mousemove", (e, d) => showMapTip(e, d.id)).on("mouseleave", () => { MAP.tip.hidden = true; });
+      const lab = nodes.filter((n) => state.labelIds.has(n.id)).map((n) => { const cid = baseKZ(n.id); const p = MAP.centroid.get(cid); return { ...n, px: p[0], py: p[1] - (MAP.hasPoly.has(cid) ? 0 : 7), fs: isKZ(n.id) ? 11 : 9 }; });
+      MAP.g.select(".label-layer").selectAll("text.map-label").data(lab, (d) => d.id).join("text").attr("class", "map-label").attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+        .attr("x", (d) => d.px).attr("y", (d) => d.py).attr("font-size", (d) => d.fs / s).attr("font-weight", (d) => isKZ(d.id) ? 700 : 600)
+        .attr("fill", (d) => isKZ(d.id) ? gold : fg).attr("stroke", bg).style("pointer-events", "none").text((d) => d.id);
+      const edges = [];
+      if (state.pinned && byId.has(baseKZ(state.pinned))) {
+        const a = state.pinned, la = DATA.meta[a].ll;
+        (state.adjacency.get(a) || new Set()).forEach((b) => { const lb = DATA.meta[b].ll; const sim = simTo(a, b); edges.push({ id: a + "|" + b, geo: { type: "LineString", coordinates: [[la[1], la[0]], [lb[1], lb[0]]] }, sim, below: sim < V().thr, sw: Math.max(1.2, wWidth(sim)) }); });
+      }
+      MAP.g.select(".edge-layer").selectAll("path.map-edge").data(edges, (d) => d.id).join("path").attr("class", "map-edge").attr("d", (d) => MAP.path(d.geo)).attr("fill", "none")
+        .attr("stroke", (d) => d.below ? (cssVar("--muted") || "#9ca3af") : focusRing).attr("stroke-width", (d) => d.sw / k).attr("stroke-dasharray", (d) => d.below ? "5 4" : null).attr("opacity", 0.9).style("pointer-events", "none");
+    }
+
+    /* ── bootstrap ─────────────────────────────────────────────────────── */
+    function main() {
+      loadVariant(); renderVariants(); renderLegend(); renderGroups();
+      countryCombo = createCombobox("combo-country", {
+        items: () => state.allNodes.map((n) => ({ id: n.id, label: n.label, color: n.color, g1: n.g1 })).sort((a, b) => (isKZ(a.id) ? -1 : isKZ(b.id) ? 1 : a.label.localeCompare(b.label, "ru"))),
+        onSelect: (it) => pinCountry(it.id, true),
+        onClear: () => { if (state.pinned) { state.pinned = ""; hideDetail(); updateViz(); } },
+        renderItem: (it) => '<span class="combo-swatch" style="background:' + it.color + '"></span><span class="opt-main"><span class="opt-name">' + escapeHtml(it.label) + ' (' + it.id + ')</span><span class="opt-sub">доходы ' + fmt1(it.g1) + '% ВВП</span></span>'
+      });
+      document.getElementById("clear-all").addEventListener("click", resetAll);
+      const kazApply = () => { const byYear = document.querySelector('input[name="kaz-mode"][value="year"]').checked; state.kazMode = byYear ? document.getElementById("kaz-year").value : ""; const pinned = state.pinned; setVariant(state.v); if (pinned && isKZ(pinned)) pinCountry(KZ(), true); };
+      document.querySelectorAll('input[name="kaz-mode"]').forEach((r) => r.addEventListener("change", (e) => { if (e.target.checked) kazApply(); }));
+      document.getElementById("kaz-year").addEventListener("change", () => { document.querySelector('input[name="kaz-mode"][value="year"]').checked = true; kazApply(); });
+      document.getElementById("view-net").addEventListener("click", () => setView("net"));
+      document.getElementById("view-map").addEventListener("click", () => setView("map"));
+      document.getElementById("detail-close").addEventListener("click", () => pinCountry(state.pinned));
+      document.getElementById("cdetail-close").addEventListener("click", () => selectCluster(state.selectedCluster));
+      document.getElementById("theme-toggle").addEventListener("click", () => applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"));
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") resetAll(); if (e.key >= "1" && e.key <= "3" && document.activeElement.tagName !== "INPUT") setVariant(+e.key - 1); });
+      updateViz();
+      let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (state.view === "map") { MAP.built = false; MAP.hasPoly = new Set(); MAP.centroid = new Map(); buildMap(); } else decorate(); }, 160); });
+      const viz = document.getElementById("viz");
+      viz.addEventListener("mouseup", () => setTimeout(decorate, 90));
+      viz.addEventListener("wheel", () => setTimeout(decorate, 90), { passive: true });
+    }
+    try { const saved = localStorage.getItem("desht-theme"); if (saved) document.documentElement.setAttribute("data-theme", saved); } catch (e) {}
+    document.getElementById("theme-toggle").textContent = document.documentElement.getAttribute("data-theme") === "light" ? "☾" : "☀";
+    try { main(); } catch (err) { document.getElementById("status").textContent = "Ошибка: " + err.message; console.error(err); }
+  </script>
+</body>
+</html>
