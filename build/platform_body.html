@@ -41,9 +41,8 @@
           <button class="pill-btn" id="view-map" type="button">Карта мира</button>
         </div>
         <div class="field-hint" style="margin-top:10px"><b>Казахстан: какой вектор в сети</b></div>
-        <label class="field-hint" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px"><input type="radio" name="kaz-mode" value="" checked style="accent-color:var(--nav-accent)"><span><b>KAZ — GFS 2023</b> (как сдано в МВФ)</span></label>
-        <label class="field-hint" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px"><input type="radio" name="kaz-mode" value="year" style="accent-color:var(--nav-accent)"><span><b>KAZ по годам</b> (соцналог → ИПН)</span><select id="kaz-year" style="margin-left:auto;font:inherit;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)"><option value="2000">2000</option><option value="2001">2001</option><option value="2002">2002</option><option value="2003">2003</option><option value="2004">2004</option><option value="2005">2005</option><option value="2006">2006</option><option value="2007">2007</option><option value="2008">2008</option><option value="2009">2009</option><option value="2010">2010</option><option value="2011">2011</option><option value="2012">2012</option><option value="2013">2013</option><option value="2014">2014</option><option value="2015">2015</option><option value="2016">2016</option><option value="2017">2017</option><option value="2018">2018</option><option value="2019">2019</option><option value="2020">2020</option><option value="2021">2021</option><option value="2022">2022</option><option value="2023" selected>2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select></label>
-        <div class="field-hint" style="margin-top:4px">2023 = KAZ_ipn_2023. Кроме 2023 и 2026 — только в варианте «% ВВП»; 2005–2009 — нет данных МВФ.</div>
+        <label class="field-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px"><span><b>Год</b> (соцналог → ИПН)</span><select id="kaz-year" style="margin-left:auto;font:inherit;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)"><option value="2010">2010</option><option value="2011">2011</option><option value="2012">2012</option><option value="2013">2013</option><option value="2014">2014</option><option value="2015">2015</option><option value="2016">2016</option><option value="2017">2017</option><option value="2018">2018</option><option value="2019">2019</option><option value="2020">2020</option><option value="2021">2021</option><option value="2022">2022</option><option value="2023" selected>2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select></label>
+        <div class="field-hint" style="margin-top:4px">2023 = KAZ_ipn_2023 (МВФ GFS 2023). Кроме 2023 и 2026 — только в варианте «% ВВП».</div>
         <div class="field-hint">Карта: страны закрашены в границах цветом сообщества выбранного варианта; микространы без контура — точками. Связи показываются для закреплённой страны.</div>
       </section>
       <section class="card detail flexy" id="detail" hidden>
@@ -92,7 +91,7 @@
 
   <script>
     const DATA = __DATA__;
-    const state = { v: 0, view: "net", kazMode: "", allNodes: [], allLinks: [], linkMap: new Map(), nodeById: new Map(), adjacency: new Map(), clusterMeta: [], selectedCluster: null, pinned: "", labelIds: new Set(), groups: new Set() };
+    const state = { v: 0, view: "net", kazMode: "2023", allNodes: [], allLinks: [], linkMap: new Map(), nodeById: new Map(), adjacency: new Map(), clusterMeta: [], selectedCluster: null, pinned: "", labelIds: new Set(), groups: new Set() };
     let net = null;
     const V = () => DATA.variants[state.v];
     const HIDE = new Set(["WSM", "KOS"]);   // Самоа и Косово не показываются ни в сети, ни на карте, ни в поиске
@@ -102,7 +101,7 @@
     const baseKZ = (id) => (isKZ(id) ? "KAZ" : id);
     const altKey = (m) => (!m ? "" : m === "2023" ? "alt" : "alt" + m);
     const ALT = (v) => (state.kazMode && v[altKey(state.kazMode)]) || v;
-    function syncKazRadios() { const v = DATA.variants[state.v]; const sel = document.getElementById("kaz-year"); Array.from(sel.options).forEach((o) => { o.disabled = !v[altKey(o.value)]; }); if (state.kazMode && !v[altKey(state.kazMode)]) { state.kazMode = ""; document.querySelector('input[name="kaz-mode"][value=""]').checked = true; } }
+    function syncKazRadios() { const v = DATA.variants[state.v]; const sel = document.getElementById("kaz-year"); Array.from(sel.options).forEach((o) => { o.disabled = !v[altKey(o.value)]; }); if (!v[altKey(state.kazMode)]) { state.kazMode = "2023"; sel.value = "2023"; } }
     const pct = (v) => "p" + Math.round(v.q * 100);
     const thrText = (v) => pct(v) + " = " + fmt3(v.thr);
     const clusterOf = (id) => V().clusters.find((c) => c.id === id);
@@ -483,9 +482,8 @@
         renderItem: (it) => '<span class="combo-swatch" style="background:' + it.color + '"></span><span class="opt-main"><span class="opt-name">' + escapeHtml(it.label) + ' (' + it.id + ')</span><span class="opt-sub">доходы ' + fmt1(it.g1) + '% ВВП</span></span>'
       });
       document.getElementById("clear-all").addEventListener("click", resetAll);
-      const kazApply = () => { const byYear = document.querySelector('input[name="kaz-mode"][value="year"]').checked; state.kazMode = byYear ? document.getElementById("kaz-year").value : ""; const pinned = state.pinned; setVariant(state.v); if (pinned && isKZ(pinned)) pinCountry(KZ(), true); };
-      document.querySelectorAll('input[name="kaz-mode"]').forEach((r) => r.addEventListener("change", (e) => { if (e.target.checked) kazApply(); }));
-      document.getElementById("kaz-year").addEventListener("change", () => { document.querySelector('input[name="kaz-mode"][value="year"]').checked = true; kazApply(); });
+      const kazApply = () => { state.kazMode = document.getElementById("kaz-year").value; const pinned = state.pinned; setVariant(state.v); if (pinned && isKZ(pinned)) pinCountry(KZ(), true); };
+      document.getElementById("kaz-year").addEventListener("change", kazApply);
       document.getElementById("view-net").addEventListener("click", () => setView("net"));
       document.getElementById("view-map").addEventListener("click", () => setView("map"));
       document.getElementById("detail-close").addEventListener("click", () => pinCountry(state.pinned));
