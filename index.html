@@ -223,7 +223,7 @@
           <button class="pill-btn" id="view-map" type="button">Карта мира</button>
         </div>
         <div class="field-hint" style="margin-top:10px"><b>Казахстан: какой вектор в сети</b></div>
-        <label class="field-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px"><span><b>Год</b> (соцналог → ИПН)</span><select id="kaz-year" style="margin-left:auto;font:inherit;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)"><option value="2010">2010</option><option value="2011">2011</option><option value="2012">2012</option><option value="2013">2013</option><option value="2014">2014</option><option value="2015">2015</option><option value="2016">2016</option><option value="2017">2017</option><option value="2018">2018</option><option value="2019">2019</option><option value="2020">2020</option><option value="2021">2021</option><option value="2022">2022</option><option value="2023" selected>2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select></label>
+        <div class="field-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px"><span><b>Год</b> (соцналог → ИПН)</span><b id="kaz-year-val" style="margin-left:auto;font-variant-numeric:tabular-nums">2023</b></div><input id="kaz-year" type="range" min="2010" max="2026" step="1" value="2023" list="kaz-year-ticks" style="width:100%;margin:4px 0 0;accent-color:var(--accent, #2563eb)"><datalist id="kaz-year-ticks"></datalist><div class="field-hint" style="display:flex;justify-content:space-between;font-size:10px;margin-top:-2px"><span>2010</span><span>2014</span><span>2018</span><span>2022</span><span>2026</span></div>
         <div class="field-hint" style="margin-top:4px">2023 = KAZ_ipn_2023 (МВФ GFS 2023). Кроме 2023 и 2026 — только в варианте «% ВВП».</div>
         <div class="field-hint">Карта: страны закрашены в границах цветом сообщества выбранного варианта; микространы без контура — точками. Связи показываются для закреплённой страны.</div>
       </section>
@@ -283,7 +283,12 @@
     const baseKZ = (id) => (isKZ(id) ? "KAZ" : id);
     const altKey = (m) => (!m ? "" : m === "2023" ? "alt" : "alt" + m);
     const ALT = (v) => (state.kazMode && v[altKey(state.kazMode)]) || v;
-    function syncKazRadios() { const v = DATA.variants[state.v]; const sel = document.getElementById("kaz-year"); Array.from(sel.options).forEach((o) => { o.disabled = !v[altKey(o.value)]; }); if (!v[altKey(state.kazMode)]) { state.kazMode = "2023"; sel.value = "2023"; } }
+    const kazYears = (v) => { const ys = []; for (let y = 2010; y <= 2026; y++) if (v[altKey(String(y))]) ys.push(y); return ys; };
+    const kazNearest = (v, y) => { const ys = kazYears(v); if (!ys.length) return 2023; return ys.reduce((b, a) => (Math.abs(a - y) < Math.abs(b - y) ? a : b), ys[0]); };
+    function syncKazRadios() { const v = DATA.variants[state.v]; const sel = document.getElementById("kaz-year"); const ys = kazYears(v);
+      document.getElementById("kaz-year-ticks").innerHTML = ys.map((y) => '<option value="' + y + '"></option>').join("");
+      if (!v[altKey(state.kazMode)]) state.kazMode = "2023"; sel.value = state.kazMode; document.getElementById("kaz-year-val").textContent = state.kazMode;
+      sel.title = ys.length === 17 ? "2010–2026" : "в этом варианте доступны: " + ys.join(", "); }
     const pct = (v) => "p" + Math.round(v.q * 100);
     const thrText = (v) => pct(v) + " = " + fmt3(v.thr);
     const clusterOf = (id) => V().clusters.find((c) => c.id === id);
@@ -312,6 +317,7 @@
     function getDisplayNodes() {
       const active = anyActive(); const ids = active ? activeHighlight() : null;
       state.labelIds = active ? new Set(ids) : topByValue(30); state.labelIds.add(KZ());
+      if (!active) (state.adjacency.get(KZ()) || new Set()).forEach((id) => state.labelIds.add(id));   // подписи всех соседей Казахстана в сети выбранного года
       const muted = cssVar("--node-muted") || "#363d4b";
       return state.allNodes.map((n) => ({ ...n, displayColor: !active || ids.has(n.id) ? n.color : muted, isFocus: n.id === state.pinned }));
     }
@@ -664,7 +670,8 @@
         renderItem: (it) => '<span class="combo-swatch" style="background:' + it.color + '"></span><span class="opt-main"><span class="opt-name">' + escapeHtml(it.label) + ' (' + it.id + ')</span><span class="opt-sub">доходы ' + fmt1(it.g1) + '% ВВП</span></span>'
       });
       document.getElementById("clear-all").addEventListener("click", resetAll);
-      const kazApply = () => { state.kazMode = document.getElementById("kaz-year").value; const pinned = state.pinned; setVariant(state.v); if (pinned && isKZ(pinned)) pinCountry(KZ(), true); };
+      const kazApply = () => { const sel = document.getElementById("kaz-year"); const y = String(kazNearest(DATA.variants[state.v], +sel.value)); sel.value = y; document.getElementById("kaz-year-val").textContent = y; if (y === state.kazMode) return; state.kazMode = y; const pinned = state.pinned; setVariant(state.v); if (pinned && isKZ(pinned)) pinCountry(KZ(), true); };
+      document.getElementById("kaz-year").addEventListener("input", kazApply);
       document.getElementById("kaz-year").addEventListener("change", kazApply);
       document.getElementById("view-net").addEventListener("click", () => setView("net"));
       document.getElementById("view-map").addEventListener("click", () => setView("map"));
