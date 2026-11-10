@@ -24,3 +24,16 @@ PY="C:/Users/Elina/AppData/Local/Programs/Python/Python310/python.exe"
 "$PY" site/build/mk_platform_html.py . site/build
 "$PY" site/build/apply_hide.py site/build .
 ```
+
+## Расходы (COFOG) и общая платформа
+
+5. `mk_cofog_years.py` — узлы Казахстана по годам 2010–2026 для страницы расходов `site_cofog/Fiscal_COFOG_network_platform.html` (правит её на месте, копия до правки — `*_before_years.html.bak`) и ползунок года.
+   Векторы: `COFOG/Fiscal_COFOG_verification.xlsx`, лист «Итог с поправками», 10 разделов GF01–GF10 (2010–2023 — МВФ, 2024 — анкета Минфина, 2025–2026 — оценка); ВВП — `Excels/Fiscal_GFS2026.xlsx`, лист «GFS dynamics 2000-2026». 2023 — базовый узел KAZ.
+   Аргументы: `<Fiscal> [копия Fiscal_COFOG_verification.xlsx] [копия Fiscal_GFS2026.xlsx]`. Можно запускать повторно.
+6. `mk_platform_merge.py` — склеивает страницу доходов (`site/Fiscal_network_97_platform.html`) и страницу расходов в одну: `site/Fiscal_platform.html`.
+   Код один, наборов данных два; раздел выбирается параметром `?p=rev` / `?p=exp`, переключатель «Доходы / Расходы» в шапке. Исходные страницы не меняются.
+   Аргументы: `<Fiscal>`. В репозитории результат лежит как `index.html`.
+```
+"$PY" site_cofog/mk_cofog_years.py . <копия verification.xlsx> <копия Fiscal_GFS2026.xlsx>
+"$PY" site/build/mk_platform_merge.py .
+```
