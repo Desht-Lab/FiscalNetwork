@@ -224,6 +224,7 @@
           <button class="pill-btn on" id="view-net" type="button">Сеть</button>
           <button class="pill-btn" id="view-map" type="button">Карта мира</button>
         </div>
+        <label class="field-hint" id="map-labels-row" style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer"><input id="map-labels" type="checkbox" style="margin:0;accent-color:var(--accent)"><span>Подписи стран на карте</span></label>
         <div class="field-hint" style="margin-top:10px"><b>Казахстан: какой вектор в сети</b></div>
         <div class="field-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px"><span id="kaz-year-label"><b>Год</b></span><b id="kaz-year-val" style="margin-left:auto;font-variant-numeric:tabular-nums">2023</b></div><input id="kaz-year" type="range" min="2010" max="2026" step="1" value="2023" list="kaz-year-ticks" style="width:100%;margin:4px 0 0;accent-color:var(--accent, #2563eb)"><datalist id="kaz-year-ticks"></datalist><div class="field-hint" style="display:flex;justify-content:space-between;font-size:10px;margin-top:-2px"><span>2010</span><span>2014</span><span>2018</span><span>2022</span><span>2026</span></div>
         <div class="field-hint" style="margin-top:4px" id="kaz-year-hint"></div>
@@ -655,7 +656,7 @@
       MAP.g.select(".marker-layer").selectAll("circle.marker").data(marks, (d) => d.id).join("circle").attr("class", "marker").attr("cx", (d) => d.px).attr("cy", (d) => d.py).attr("r", (d) => d.r / s)
         .attr("fill", (d) => d.displayColor || d.color).attr("stroke", (d) => d.isFocus ? focusRing : card).attr("stroke-width", (d) => d.sw / s).style("cursor", "pointer")
         .on("click", (e, d) => { e.stopPropagation(); pinCountry(d.id, true); }).on("mousemove", (e, d) => showMapTip(e, d.id)).on("mouseleave", () => { MAP.tip.hidden = true; });
-      const lab = (EXP ? [] : nodes.filter((n) => state.labelIds.has(n.id))).map((n) => { const cid = baseKZ(n.id); const p = MAP.centroid.get(cid); return { ...n, px: p[0], py: p[1] - (MAP.hasPoly.has(cid) ? 0 : 7), fs: isKZ(n.id) ? 11 : 9 }; });
+      const lab = (state.mapLabels ? nodes.filter((n) => state.labelIds.has(n.id)) : []).map((n) => { const cid = baseKZ(n.id); const p = MAP.centroid.get(cid); return { ...n, px: p[0], py: p[1] - (MAP.hasPoly.has(cid) ? 0 : 7), fs: isKZ(n.id) ? 11 : 9 }; });
       MAP.g.select(".label-layer").selectAll("text.map-label").data(lab, (d) => d.id).join("text").attr("class", "map-label").attr("text-anchor", "middle").attr("dominant-baseline", "middle")
         .attr("x", (d) => d.px).attr("y", (d) => d.py).attr("font-size", (d) => d.fs / s).attr("font-weight", (d) => isKZ(d.id) ? 700 : 600)
         .attr("fill", (d) => isKZ(d.id) ? gold : fg).attr("stroke", bg).style("pointer-events", "none").text((d) => d.id);
@@ -681,6 +682,8 @@
       const kazApply = () => { const sel = document.getElementById("kaz-year"); const y = String(kazNearest(DATA.variants[state.v], +sel.value)); sel.value = y; document.getElementById("kaz-year-val").textContent = y; if (y === state.kazMode) return; state.kazMode = y; const pinned = state.pinned; setVariant(state.v); if (pinned && isKZ(pinned)) pinCountry(KZ(), true); };
       document.getElementById("kaz-year").addEventListener("input", kazApply);
       document.getElementById("kaz-year").addEventListener("change", kazApply);
+      state.mapLabels = !EXP; document.getElementById("map-labels").checked = state.mapLabels;   // по доходам подписи на карте включены, по расходам выключены; галочкой можно переключить
+      document.getElementById("map-labels").addEventListener("change", (e) => { state.mapLabels = e.target.checked; if (state.view === "map") updateMap(); });
       document.getElementById("view-net").addEventListener("click", () => setView("net"));
       document.getElementById("view-map").addEventListener("click", () => setView("map"));
       document.getElementById("detail-close").addEventListener("click", () => pinCountry(state.pinned));
